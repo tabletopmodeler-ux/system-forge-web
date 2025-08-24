@@ -1,674 +1,102 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>System Forge — Web (Pack C)</title>
-<style>
-:root{
-  --bg:#0b0f14; --panel:#111923; --text:#e7f0fb; --muted:#8aa0ba;
-  --accent:#5cc8ff; --btn:#163047; --btn2:#1b2430; --border:#273446;
-  --good:#7bd88f; --warn:#ffd166; --bad:#ff6b6b;
-}
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Inter,Arial,sans-serif}
-.appbar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0d141d;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
-.appbar .title{font-weight:700;letter-spacing:.3px}
-.content{padding:12px;display:grid;gap:12px;grid-template-columns:1fr}
-.controls{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px}
-.controls .row{display:grid;grid-template-columns:110px 1fr auto;gap:8px;align-items:center;margin-bottom:8px}
-.controls .row.stacked{grid-template-columns:1fr}
-.controls label{color:var(--muted);font-size:14px}
-.controls input[type=text], .controls select{background:#0f1a25;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px}
-.controls .chip{display:inline-flex;align-items:center;gap:6px;margin:4px 6px 0 0;padding:6px 10px;border:1px solid var(--border);border-radius:999px;cursor:pointer}
-.controls .chip input{accent-color:#5cc8ff}
-.controls button{background:var(--btn2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px 12px;cursor:pointer}
-.controls button.primary{background:var(--btn);border-color:#2b3d53}
-.controls button:hover{filter:brightness(1.1)}
-.small{font-size:12px;color:var(--muted)}
-.stats{font-size:14px;color:var(--muted);padding:6px 2px}
-.canvas-wrap{position:relative;background:#0f1720;border:1px solid var(--border);border-radius:12px;padding:6px;display:flex;justify-content:center;min-height:420px}
-canvas{max-width:100%;height:auto;border-radius:8px;background:#0b111a;touch-action:manipulation}
-.legend{position:absolute;right:10px;bottom:10px;background:#ffffffd0;color:#000;border:1px solid #888;border-radius:10px;padding:10px;max-width:min(60%,280px)}
-.legend.hidden{display:none}
-.legend .legend-title{font-weight:700;margin-bottom:6px}
-.legend ul{margin:0;padding-left:18px;font-size:12px}
-.legend li{margin:2px 0}
-.detail-sheet{position:fixed;left:0;right:0;bottom:0;transform:translateY(100%);transition:.25s transform ease; background:#0f1720;border-top:1px solid var(--border);box-shadow:0 -8px 24px rgba(0,0,0,.3);padding:12px 14px;z-index:20}
-.detail-sheet.show{transform:translateY(0)}
-.detail-row{display:grid;grid-template-columns:120px 1fr;gap:10px;margin:4px 0}
-.badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--border);font-size:12px;color:var(--muted)}
-.hab{font-weight:700;padding:2px 8px;border-radius:999px}
-.hab.good{background:color-mix(in srgb, var(--good) 20%, transparent);border:1px solid var(--good);color:var(--good)}
-.hab.ok{background:color-mix(in srgb, var(--warn) 20%, transparent);border:1px solid var(--warn);color:var(--warn)}
-.hab.bad{background:color-mix(in srgb, var(--bad) 20%, transparent);border:1px solid var(--bad);color:var(--bad)}
-.footer{padding:8px 12px;color:var(--muted);font-size:12px;text-align:center;border-top:1px solid var(--border)}
-@media (min-width: 980px){
-  .content{grid-template-columns:380px 1fr}
-  .canvas-wrap{min-height:560px}
-}
-</style>
-</head>
-<body>
-  <header class="appbar">
-    <div class="title">System Forge</div>
-  </header>
-
-  <main class="content">
-    <section class="controls">
-      <div class="row">
-        <label for="seed">Seed</label>
-        <input id="seed" type="text" value="AURORA-07731" />
-        <button id="btnReroll" title="Randomize">🎲</button>
-      </div>
-      <div class="row">
-        <label for="preset">Preset</label>
-        <select id="preset">
-          <option>Hard Sci‑Fi</option>
-          <option selected>Space Opera</option>
-          <option>Sparse</option>
-          <option>Crowded</option>
-        </select>
-        <button id="btnResetPreset">Reset</button>
-      </div>
-
-      <!-- Pack C controls -->
-      <div class="row">
-        <label>Planets</label>
-        <div>
-          <input id="minPlanets" type="range" min="1" max="12" value="4" />
-          <span class="small">Min: <span id="minPlanetsVal">4</span></span><br>
-          <input id="maxPlanets" type="range" min="1" max="16" value="10" />
-          <span class="small">Max: <span id="maxPlanetsVal">10</span></span>
-        </div>
-        <span></span>
-      </div>
-
-      <div class="row">
-        <label>Moons</label>
-        <div>
-          <input id="moonBias" type="range" min="0" max="200" value="120" />
-          <span class="small">Multiplier: <span id="moonBiasVal">1.20×</span></span>
-        </div>
-        <span></span>
-      </div>
-
-      <div class="row">
-        <label>Belts</label>
-        <div>
-          <input id="beltChance" type="range" min="0" max="100" value="80" />
-          <span class="small">Chance: <span id="beltChanceVal">80%</span></span>
-        </div>
-        <span></span>
-      </div>
-
-      <div class="row">
-        <label>POI Density</label>
-        <div>
-          <input id="poiDensity" type="range" min="0" max="3" value="2" />
-          <span class="small">Level: <span id="poiDensityVal">2</span></span>
-        </div>
-        <button id="btnRandomize">Randomize All</button>
-      </div>
-
-      <div class="row stacked">
-        <div class="small" style="margin-bottom:6px">POI Categories</div>
-        <div>
-          <label class="chip"><input type="checkbox" class="poiCat" value="Cities" checked> Cities</label>
-          <label class="chip"><input type="checkbox" class="poiCat" value="Ruins" checked> Ruins</label>
-          <label class="chip"><input type="checkbox" class="poiCat" value="Geology" checked> Geology</label>
-          <label class="chip"><input type="checkbox" class="poiCat" value="Anomalies" checked> Anomalies</label>
-          <label class="chip"><input type="checkbox" class="poiCat" value="Factions" checked> Factions</label>
-          <label class="chip"><input type="checkbox" class="poiCat" value="Resources" checked> Resources</label>
-        </div>
-      </div>
-
-      <div class="row">
-        <button id="btnGenerate" class="primary">Generate</button>
-        <button id="btnLegend">Legend</button>
-        <button id="btnExportJSON">Export JSON</button>
-        <button id="btnExportCSV">Export CSV</button>
-        <button id="btnExportPNG">Export PNG</button>
-      </div>
-
-      <div id="stats" class="stats"></div>
-    </section>
-
-    <section class="canvas-wrap">
-      <canvas id="map" width="900" height="900" aria-label="System map"></canvas>
-      <div id="legend" class="legend hidden">
-        <div class="legend-title">LEGEND</div>
-        <ul>
-          <li>★ Primary Star (color = spectral class)</li>
-          <li>◐ Secondary/Tertiary Star</li>
-          <li>● Terrestrial (blue), ● Ocean (dark blue), ● Ice (white/blue), ⬤ Gas (striped), ● Dwarf (gray)</li>
-          <li>• Moon (small dot)</li>
-          <li>( ) Rings</li>
-          <li>··· Asteroid Belt</li>
-          <li>- - - Orbit Path</li>
-        </ul>
-      </div>
-    </section>
-  </main>
-
-  <footer class="footer">
-    <span id="footInfo">Pack C • Sliders & Toggles • Cities scale with habitability</span>
-  </footer>
-
-  <!-- Details sheet (unchanged from previous upgrade) -->
-  <div id="detailSheet" class="detail-sheet" role="dialog" aria-live="polite">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div id="detailTitle" style="font-weight:700">Planet</div>
-      <button id="btnCopy" class="badge" title="Copy details">Copy</button>
-    </div>
-    <div class="detail-row"><div class="badge">Class</div><div id="dClass"></div></div>
-    <div class="detail-row"><div class="badge">Bands</div><div id="dBands"></div></div>
-    <div class="detail-row"><div class="badge">Atmos</div><div id="dAtmos"></div></div>
-    <div class="detail-row"><div class="badge">Temp</div><div id="dTemp"></div></div>
-    <div class="detail-row"><div class="badge">Water</div><div id="dWater"></div></div>
-    <div class="detail-row"><div class="badge">Gravity</div><div id="dGrav"></div></div>
-    <div class="detail-row"><div class="badge">Habitability</div><div id="dHab"></div></div>
-    <div class="detail-row"><div class="badge">POIs</div><div id="dPOIs"></div></div>
-    <div style="text-align:right;margin-top:6px">
-      <button id="btnClose" class="badge">Close</button>
-    </div>
-  </div>
-
+...
+<div class="row">
+  <button id="btnGenerate" class="primary">Generate</button>
+  <button id="btnLegend">Legend</button>
+  <button id="btnExportJSON">JSON</button>
+  <button id="btnExportCSV">CSV</button>
+  <button id="btnExportPNG">PNG</button>
+  <button id="btnExportPDF">PDF</button> <!-- NEW -->
+</div>
+...
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-/*** Deterministic PRNG ***/
-function nfc(s){ return s.normalize('NFC'); }
-function hash64(str){ let h=0xcbf29ce484222325n, p=0x100000001b3n; const b=new TextEncoder().encode(str); for(const x of b){h^=BigInt(x); h=(h*p)&((1n<<64n)-1n);} return h||1n; }
-function splitSeed(seed){ return [hash64(seed), hash64(seed+"::salt")]; }
-function XORShift128Plus(seedStr){
-  let [s0, s1] = splitSeed(seedStr);
-  function nextBig(){ let x=s0,y=s1; s0=y; x^=x<<23n; x&=((1n<<64n)-1n); x^=x>>17n; x^=y; x^=y>>26n; s1=x; return (s0+s1)&((1n<<64n)-1n); }
-  function next(){ return Number(nextBig()>>11n)/Number(1n<<53n); }
-  function randint(lo,hi){ return lo+Math.floor(next()*(hi-lo+1)); }
-  function wchoice(items,weights){ let t=weights.reduce((a,b)=>a+b,0), x=next()*t; for(let i=0;i<items.length;i++){ if(x<weights[i]) return items[i]; x-=weights[i]; } return items[items.length-1]; }
-  function choice(arr){ return arr[randint(0,arr.length-1)]; }
-  return {next,randint,wchoice,choice};
+...
+/*** Extended Anomalies reasons ***/
+const ANOMALY_EFFECTS = [
+  "sensor ghosts", "energy drain", "temporal slip", "gravitic whirl", 
+  "radio interference", "psychoactive field", "magnetic storms", "wormhole echoes"
+];
+
+/*** City population generator ***/
+function randomPopulation(habScore){
+  if(habScore<20){ // harsh: domes/outposts
+    return `${(Math.floor(Math.random()*9)+1)*1000}–${(Math.floor(Math.random()*50)+1)*1000}`;
+  } else if(habScore<60){ // marginal
+    return `${(Math.floor(Math.random()*900)+100)}k–${(Math.floor(Math.random()*9)+1)}M`;
+  } else { // habitable
+    const millions = Math.floor(Math.random()*900)+100;
+    const billions = Math.random()<0.5 ? "" : ` (${(Math.random()*5).toFixed(1)}B cap)`;
+    return `${millions}M${billions}`;
+  }
 }
 
-/*** Canon ***/
-const SPECTRAL=["O","B","A","F","G","K","M"];
-const PLANET=["terrestrial","ocean","ice","gas","dwarf"];
-const ATMOS=["none","thin","breathable","thick","toxic"];
-const TEMP=["freeze","cold","temperate","warm","hot"];
-const GRAV=["low","earthlike","high"];
-const SIZE=["tiny","small","medium","large"];
-const DENS=["low","medium","high"];
-const STAR_COLORS={O:"#4BA3FF",B:"#9CCFFF",A:"#FFFFFF",F:"#FFF59D",G:"#FFD54F",K:"#FFB74D",M:"#EF5350"};
-const PLANET_COLORS={terrestrial:"#4FC3F7",ocean:"#0288D1",ice:"#E0F7FA",gas:"#FBC02D",dwarf:"#BDBDBD"};
-
-/*** Helpers ***/
-function bandsForStar(s){ let mass,lum,rad,color; if(["O","B"].includes(s)){mass="large";lum="high";rad="large";} else if(["A","F","G"].includes(s)){mass="medium";lum="medium";rad="medium";} else {mass="small";lum="low";rad="small";} color=STAR_COLORS[s]||"#FFD54F"; return {mass,lum,rad,color}; }
-function habitabilityScore(cls, atmos, grav, temp, water){
-  let s=0;
-  if(cls==="terrestrial"||cls==="ocean") s+=30;
-  if(atmos==="breathable") s+=30; else if(atmos==="thin") s+=10; else if(atmos==="thick") s+=5;
-  if(grav==="earthlike") s+=20;
-  if(temp==="temperate") s+=20; else if(temp==="warm"||temp==="cold") s+=10;
-  if(water==="global") s+=10; else if(water==="patchy") s+=5;
-  return Math.max(0,Math.min(100,s));
-}
-
-/*** Pack C: user settings model ***/
-const settings = {
-  minPlanets: 4,
-  maxPlanets: 10,
-  moonBias: 1.20,    // 0.0..2.0
-  beltChance: 0.80,  // 0..1
-  poiDensity: 2,     // 0..3
-  poiEnabled: { Cities:true, Ruins:true, Geology:true, Anomalies:true, Factions:true, Resources:true }
-};
-
-/*** Generator (respects preset + overrides from settings) ***/
-function generateSystem(seed, preset="Space Opera"){
-  seed = nfc(seed);
-  const rng = XORShift128Plus(seed);
-
-  // Preset defaults
-  let starChoices, pMin, pMax, moonBias, poiDensity, beltChance;
-  switch(preset){
-    case "Hard Sci‑Fi": starChoices=[1,1,2]; pMin=2; pMax=8; moonBias=0.8; poiDensity=1; beltChance=0.5; break;
-    case "Sparse":     starChoices=[1,1,1,2]; pMin=1; pMax=6; moonBias=0.6; poiDensity=0; beltChance=0.3; break;
-    case "Crowded":    starChoices=[1,2,2,3]; pMin=6; pMax=12; moonBias=1.4; poiDensity=2; beltChance=0.9; break;
-    default:           starChoices=[1,2,2,3]; pMin=4; pMax=10; moonBias=1.2; poiDensity=2; beltChance=0.8;
-  }
-
-  // Apply overrides from sliders/toggles
-  pMin = settings.minPlanets;
-  pMax = Math.max(settings.minPlanets, settings.maxPlanets);
-  moonBias = settings.moonBias;
-  poiDensity = settings.poiDensity;
-  beltChance = settings.beltChance;
-
-  // Stars
-  const starCount = starChoices[rng.randint(0, starChoices.length-1)];
-  const stars=[];
-  const w=[1,2,3,5,7,9,10];
-  for(let i=0;i<starCount;i++){
-    let t=w.reduce((a,b)=>a+b,0), x=rng.next()*t, spectral="G";
-    for(let j=0;j<SPECTRAL.length;j++){ if(x<w[j]) {spectral=SPECTRAL[j]; break;} x-=w[j]; }
-    const {mass,lum,rad,color} = bandsForStar(spectral);
-    stars.push({ id:`STAR-${i+1}`, role:["Primary","Secondary","Tertiary"][i], spectral_class:spectral,
-                 mass_band:mass, luminosity_band:lum, radius_band:rad, color_hint:color });
-  }
-
-  // Planets
-  const nPlanets = rng.randint(pMin, pMax);
-  const planets=[];
-  let habitable=0, moonTotal=0;
-
-  function wchoice(items,weights){
-    let t=weights.reduce((a,b)=>a+b,0), x=rng.next()*t;
-    for(let i=0;i<items.length;i++){ if(x<weights[i]) return items[i]; x-=weights[i]; }
-    return items[items.length-1];
-  }
-
-  for(let idx=1; idx<=nPlanets; idx++){
-    const pclass = wchoice(PLANET,[5,3,3,5,2]);
-    const size = wchoice(SIZE,[2,3,3,2]);
-    const mass = wchoice(SIZE,[2,3,3,2]);
-    const density = wchoice(DENS,[2,5,3]);
-    const atmos = wchoice(ATMOS,[2,3,5,2,2]);
-    const water = wchoice(["none","patchy","global"],[5,3,2]);
-    const grav = wchoice(GRAV,[3,5,3]);
-    const temp = wchoice(TEMP,[2,3,5,3,2]);
-    const rings = (pclass==="gas") && (rng.next()<0.7 || preset==="Crowded");
-
-    // moons
-    const base = {gas:[2,6], terrestrial:[0,2], ocean:[0,2], ice:[0,1], dwarf:[0,1]}[pclass];
-    let mcount = Math.max(0, Math.round((base[0] + rng.next()*(base[1]-base[0]))*moonBias + (rng.next()-0.5)));
-    moonTotal += mcount;
-    const moons=[];
-    const bands=["near","mid","far"];
-    for(let m=0;m<mcount;m++){
-      moons.push({id:`MN-${idx}${String.fromCharCode(65+m)}`, orbit_dist_band:bands[Math.min(2, Math.floor(rng.next()*3))], class:wchoice(["rock","ice","captured"],[6,3,1]), pois:[]});
-    }
-
-    const hab = habitabilityScore(pclass, atmos, grav, temp, water);
-    if(hab>=60) habitable++;
-
-    // POIs with density, category toggles, and City scaling by habitability
-    const pois = genPOIsWithCities(rng, poiDensity, settings.poiEnabled, hab);
-
-    planets.push({ id:`PL-${idx}`, orbit_index:idx, parent_star_id:"STAR-1",
-      class:pclass, size_band:size, mass_band:mass, density_band:density,
-      atmosphere:atmos, surface_water:water, gravity_band:grav, temperature_band:temp,
-      habitability_score:hab, rings:!!rings, moons, pois });
-  }
-
-  // Belts (chance slider)
-  const belts=[];
-  if(nPlanets>=2 && Math.random() < beltChance){
-    const dens = ["sparse","moderate","dense"][Math.min(2, Math.floor(Math.random()*3))];
-    const comp = ["carbonaceous chondrites","silicaceous","metallic"][Math.min(2, Math.floor(Math.random()*3))];
-    belts.push({id:"BELT-1", type:"belt", zone:(nPlanets>5?"outer":"inner"), density_band:dens, composition_hint:comp});
-  }
-
-  const now = new Date().toISOString().replace(/\.\d{3}Z$/,"Z");
-  return {
-    version:"1.0.0", app:"System Forge (Pack C)", generated_at:now, seed,
-    name:`System ${seed.split('-')[0].toUpperCase()}`, preset_used:preset, theme:"Classic Clean",
-    system_stats:{ star_count:stars.length, planet_count:nPlanets, moon_count:moonTotal, belt_count:belts.length, habitable_worlds:habitable },
-    stars, planets, belts, notes:""
-  };
-}
-
-/*** POI generation with habitability‑scaled Cities ***/
+/*** Modify POI generator to add anomalies + city populations ***/
 function genPOIsWithCities(rng, density, enabledMap, habScore){
-  // Base pool excluding Cities; we'll add Cities separately with scaling
-  const pools = {
-    Ruins:["Sundial Spire","Vault-13","Cinder Station","Nameless Gate"],
-    Geology:["Glass Flats","Basalt Teeth","Crater Mare","Whispering Dunes"],
-    Anomalies:["Grav Ripple","Signal Ghost","Aurora Node","Cold Spot"],
-    Factions:["Free Miners","Archivists","Smugglers","Pilgrims"],
-    Resources:["Iridium Veins","Chondrite Field","Hydrothermal Vent","Ice Quarries"]
-  };
-  const hooks = {
-    Ruins:"Ancient locks respond to new signals.",
-    Geology:"Recent tremors reveal fresh strata.",
-    Anomalies:"Sensors glitch with patterned noise.",
-    Factions:"Recruiters seek off-world specialists.",
-    Resources:"New claim jumpers provoke disputes.",
-    Cities:"Traffic lanes glow at local dusk."
-  };
-  const out = [];
-
-  // 1) Cities scaling:
-  // map 0..100 → 0..maxCities, with low-hab worlds rarely getting a single “habitat” style site
-  const maxCities = 5;
-  let cityCount = Math.floor((habScore/100) * maxCities);
-  // tiny chance of 1 habitat on very harsh worlds
-  if(habScore < 20 && Math.random() < (habScore/40)) cityCount = Math.max(cityCount, 1);
-
+  const out=[];
+  // cities
+  const maxCities=5; let cityCount=Math.floor((habScore/100)*maxCities);
+  if(habScore<20 && Math.random()<(habScore/40)) cityCount=Math.max(cityCount,1);
   if(enabledMap.Cities){
-    const cityNamesHigh = ["Port Halcyon","Rimwatch","Glass Harbor","Low Dock","Starwell City","New Meridian"];
-    const cityNamesHab  = ["Hab-Dome Cluster","Sealed Colony","Polar Habitat","Crater Outpost","Subglacial Base"];
-    const names = (habScore < 20) ? cityNamesHab : cityNamesHigh;
+    const high=["Port Halcyon","Rimwatch","Glass Harbor","Low Dock","Starwell City","New Meridian"];
+    const domes=["Hab-Dome Cluster","Sealed Colony","Polar Habitat","Crater Outpost","Subglacial Base"];
+    const pool = (habScore<20)?domes:high;
     for(let i=0;i<cityCount;i++){
+      const name=pool[Math.floor(Math.random()*pool.length)];
+      const pop=randomPopulation(habScore);
       out.push({id:`POI-${1000+Math.floor(Math.random()*9000)}`, category:"Cities",
-        name: names[Math.floor(Math.random()*names.length)], tags:[], hook: hooks.Cities});
+        name, population:pop, hook:`Population approx. ${pop}`});
     }
   }
-
-  // 2) Other categories respect density and toggles
-  // rough target count 0..5 based on density
-  const targetOther = Math.max(0, Math.min(5, density+2));
-  // fill with non-city POIs
-  const others = ["Ruins","Geology","Anomalies","Factions","Resources"].filter(k=>enabledMap[k]);
-  const countOther = Math.floor(Math.random()*targetOther);
+  // others
+  const pools={...}; // same as Pack C
+  const hooks={...}; // add anomalies line
+  const countOther=Math.floor(Math.random()*Math.max(0,Math.min(5,density+2)));
+  const cats=["Ruins","Geology","Anomalies","Factions","Resources"].filter(k=>enabledMap[k]);
   for(let i=0;i<countOther;i++){
-    if(!others.length) break;
-    const cat = others[Math.floor(Math.random()*others.length)];
-    const name = pools[cat][Math.floor(Math.random()*pools[cat].length)];
-    out.push({id:`POI-${1000+Math.floor(Math.random()*9000)}`, category:cat, name, tags:[], hook: hooks[cat]});
+    const cat=cats[Math.floor(Math.random()*cats.length)];
+    let name=""; let hook="";
+    if(cat==="Anomalies"){
+      const eff=ANOMALY_EFFECTS[Math.floor(Math.random()*ANOMALY_EFFECTS.length)];
+      name=["Grav Ripple","Signal Ghost","Aurora Node","Cold Spot"][Math.floor(Math.random()*4)];
+      hook=`Region affected by ${eff}`;
+    } else {
+      name=pools[cat][Math.floor(Math.random()*pools[cat].length)];
+      hook=hooks[cat];
+    }
+    out.push({id:`POI-${1000+Math.floor(Math.random()*9000)}`, category:cat, name, hook});
   }
-
   return out;
 }
 
-/*** Renderer (same visuals as previous upgrade) ***/
-function setupHiDPI(canvas){
-  const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-  const size = Math.min(canvas.parentElement.clientWidth-12, 900);
-  canvas.style.width = size+"px"; canvas.style.height = size+"px";
-  canvas.width = Math.floor(size * dpr); canvas.height = Math.floor(size * dpr);
-  const ctx = canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
-  return {ctx, size};
-}
-function drawStar(ctx, cx, cy, r, color){
-  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,r*3);
-  g.addColorStop(0, color); g.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,r*3,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
-  ctx.lineWidth=1; ctx.strokeStyle="#000"; ctx.stroke();
-}
-function drawGasGiant(ctx, x, y, r){
-  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle="#FBC02D"; ctx.fill(); ctx.strokeStyle="#000"; ctx.stroke();
-  ctx.save(); ctx.clip(); ctx.lineWidth=3; ctx.strokeStyle="#E65100";
-  for(let i=-r;i<=r;i+=6){ ctx.beginPath(); ctx.ellipse(x,y+i/3, r, r/6, 0, 0, Math.PI*2); ctx.stroke(); }
-  ctx.restore();
-}
-function drawRings(ctx, x, y, r){
-  ctx.strokeStyle="rgba(204,204,204,.9)"; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.ellipse(x,y,r+6,r+3,0,0,Math.PI*2); ctx.stroke();
-}
-function drawBeltDots(ctx, cx, cy, rad){
-  const dots=80, a0=Math.random()*Math.PI*2;
-  ctx.fillStyle="rgba(200,200,200,.9)";
-  for(let i=0;i<dots;i++){
-    const a=a0 + i*(Math.PI*2/dots) + Math.random()*0.05;
-    const rr = rad + (Math.random()*6-3);
-    ctx.fillRect(cx + rr*Math.cos(a), cy + rr*Math.sin(a), 1.5, 1.5);
-  }
-}
-function drawSystem(canvas, data, selectedId=null){
-  const {ctx, size} = setupHiDPI(canvas);
-  const W=size, H=size, cx=W/2, cy=H/2;
-  ctx.fillStyle="#0b111a"; ctx.fillRect(0,0,W,H);
-
-  // stars
-  (data.stars||[]).forEach((s, i)=>{
-    const color = STAR_COLORS[s.spectral_class] || "#FFD54F";
-    const r = (i===0?10:6);
-    drawStar(ctx, cx, cy, r, color);
-  });
-
-  // planets
-  const planets=data.planets||[];
-  const maxOrbit = Math.max(1, ...planets.map(p=>p.orbit_index));
-  const maxR = Math.min(W,H)/2 - 60;
-  const positions = {};
-  planets.forEach(p=>{
-    const r = (p.orbit_index / maxOrbit) * maxR;
-    // orbit
-    ctx.setLineDash([4,3]); ctx.strokeStyle="#667"; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
-    ctx.setLineDash([]);
-
-    // position angle
-    const h = [...p.id].reduce((a,c)=>a + c.charCodeAt(0), 0);
-    const ang = (h % 360) * Math.PI/180;
-    const px = cx + r*Math.cos(ang), py = cy + r*Math.sin(ang);
-    positions[p.id] = {x:px,y:py, radius:({tiny:4, small:6, medium:8, large:12}[p.size_band]||6)};
-
-    // highlight selection
-    if(selectedId===p.id){
-      ctx.beginPath(); ctx.arc(px,py, positions[p.id].radius+10, 0, Math.PI*2);
-      ctx.strokeStyle="#5cc8ff"; ctx.lineWidth=2; ctx.stroke();
+/*** PDF Export ***/
+function exportPDF(sys){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  let y=10;
+  doc.setFont("helvetica","bold"); doc.setFontSize(16);
+  doc.text(sys.name,10,y); y+=8;
+  doc.setFontSize(10); doc.setFont("helvetica","normal");
+  doc.text(`Seed: ${sys.seed}   Preset: ${sys.preset_used}   Generated: ${sys.generated_at}`,10,y); y+=6;
+  doc.text(`Stars: ${sys.system_stats.star_count}  Planets: ${sys.system_stats.planet_count}  Habitable: ${sys.system_stats.habitable_worlds}`,10,y); y+=8;
+  sys.stars.forEach(s=>{ doc.text(`★ ${s.id} (${s.spectral_class})`,10,y); y+=6; });
+  sys.planets.forEach(p=>{
+    doc.setFont("helvetica","bold"); doc.text(`◯ ${p.id} ${p.class} (Hab ${p.habitability_score})`,10,y); y+=6;
+    doc.setFont("helvetica","normal");
+    if(p.pois.length){
+      p.pois.forEach(q=>{ 
+        const desc = q.category==="Cities" && q.population ? `${q.name} — pop. ${q.population}` : `${q.name}`;
+        doc.text(` • ${q.category}: ${desc}`,15,y); y+=5;
+        if(q.hook) { doc.setTextColor(100); doc.text(`   ${q.hook}`,15,y); doc.setTextColor(0); y+=5; }
+      });
     }
-
-    // draw planet
-    if(p.class==="gas"){ drawGasGiant(ctx, px, py, positions[p.id].radius); }
-    else {
-      ctx.beginPath(); ctx.arc(px,py,positions[p.id].radius,0,Math.PI*2);
-      ctx.fillStyle = PLANET_COLORS[p.class] || "#4FC3F7"; ctx.fill();
-      ctx.strokeStyle="#000"; ctx.stroke();
-    }
-    if(p.rings) drawRings(ctx, px, py, positions[p.id].radius);
-
-    // moons
-    (p.moons||[]).slice(0,6).forEach((m,i)=>{
-      const mAng = ang + (i+1)*Math.PI/6;
-      const mr = positions[p.id].radius + 10;
-      const mx = px + mr*Math.cos(mAng), my= py + mr*Math.sin(mAng);
-      ctx.beginPath(); ctx.arc(mx,my,2,0,Math.PI*2); ctx.fillStyle="#AAA"; ctx.fill();
-    });
+    y+=3;
+    if(y>270){ doc.addPage(); y=10; }
   });
-
-  // asteroid belt (if any)
-  (data.belts||[]).forEach((b, i)=>{
-    const beltRad = (maxOrbit/2) / maxOrbit * maxR + 60;
-    drawBeltDots(ctx, cx, cy, beltRad);
-  });
-
-  return positions;
+  doc.save(`${sys.name}-${sys.seed}.pdf`);
 }
 
-/*** Exports ***/
-function exportJSON(data){
-  const blob = new Blob([JSON.stringify(data, null, 2) + "\n"], {type:"application/json;charset=utf-8"});
-  const url = URL.createObjectURL(blob);
-  const a = Object.assign(document.createElement('a'), {href:url, download:`${data.name}-${data.seed}.json`});
-  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-}
-function exportCSV(data){
-  const cols=["System_Name","Seed","Preset","Theme","Body_Type","Body_ID","Parent_ID","Orbit_Index","Orbit_Dist_Band","Role","Spectral_Class","Mass_Band","Luminosity_Band","Radius_Band","Color_Hint","Class","Size_Band","Density_Band","Atmosphere","Surface_Water","Gravity_Band","Temperature_Band","Habitability_Score","Rings","Moon_Count","POI_Count","POI_List","Notes"];
-  const rows=[cols];
-  const sysname=data.name||"", seed=data.seed||"", preset=data.preset_used||"", theme=data.theme||"", notes=data.notes||"";
-  (data.stars||[]).forEach(s=>{
-    rows.push([sysname,seed,preset,theme,"Star",s.id,"","","",s.role,s.spectral_class,s.mass_band,s.luminosity_band,s.radius_band,s.color_hint,"","","","","","","","","","","0","","",notes]);
-  });
-  (data.planets||[]).forEach(p=>{
-    const poiList=(p.pois||[]).map(x=>x.name).join(";");
-    rows.push([sysname,seed,preset,theme,"Planet",p.id,p.parent_star_id,p.orbit_index,"","","",p.mass_band,"",p.density_band,"",p.class,p.size_band,p.density_band,p.atmosphere,p.surface_water,p.gravity_band,p.temperature_band,p.habitability_score,(p.rings?"Y":"N"),(p.moons||[]).length,(p.pois||[]).length,poiList,notes]);
-    (p.moons||[]).forEach((m,i)=>{
-      const poiListM=(m.pois||[]).map(x=>x.name).join(";");
-      rows.push([sysname,seed,preset,theme,"Moon",m.id,p.id,(i+1),m.orbit_dist_band,"","","","","","","",m.class,"","","","","","",0,"",0,(m.pois||[]).length,poiListM,notes]);
-    });
-  });
-  (data.belts||[]).forEach(b=>{
-    rows.push([sysname,seed,preset,theme,"Belt",b.id,"","","","","","","","","",b.type,"","","","","","","","",0,"",0,"",b.composition_hint||""]);
-  });
-  const csv = rows.map(r=>r.map(cell=>{
-    const s=String(cell??""); return /[",\n,]/.test(s) ? '"'+s.replaceAll('"','""')+'"' : s;
-  }).join(",")).join("\n")+"\n";
-  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
-  const url = URL.createObjectURL(blob);
-  const a = Object.assign(document.createElement('a'), {href:url, download:`${sysname}-${seed}.csv`});
-  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-}
-function exportPNG(canvas, data, scale=2){
-  const tmp = document.createElement('canvas');
-  const size = Math.min(canvas.parentElement.clientWidth-12, 900);
-  tmp.width = size*scale; tmp.height = size*scale;
-  const ctx = tmp.getContext('2d'); ctx.scale(scale,scale);
-  drawSystem(tmp, currentSystem, selectedId);
-  tmp.toBlob(blob=>{
-    const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement('a'), {href:url, download:`${data.name}-${data.seed}.png`});
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  });
-}
-
-/*** App wiring & interactions ***/
-const map = document.getElementById('map');
-const seedEl = document.getElementById('seed');
-const presetEl = document.getElementById('preset');
-const btnReroll = document.getElementById('btnReroll');
-const btnResetPreset = document.getElementById('btnResetPreset');
-const btnRandomize = document.getElementById('btnRandomize');
-const minEl = document.getElementById('minPlanets');
-const maxEl = document.getElementById('maxPlanets');
-const moonEl = document.getElementById('moonBias');
-const beltEl = document.getElementById('beltChance');
-const poiEl = document.getElementById('poiDensity');
-const minVal = document.getElementById('minPlanetsVal');
-const maxVal = document.getElementById('maxPlanetsVal');
-const moonVal = document.getElementById('moonBiasVal');
-const beltVal = document.getElementById('beltChanceVal');
-const poiVal = document.getElementById('poiDensityVal');
-const catChecks = Array.from(document.querySelectorAll('.poiCat'));
-const btnGen = document.getElementById('btnGenerate');
-const btnLegend = document.getElementById('btnLegend');
-const btnJSON = document.getElementById('btnExportJSON');
-const btnCSV = document.getElementById('btnExportCSV');
-const btnPNG = document.getElementById('btnExportPNG');
-const stats = document.getElementById('stats');
-const legend = document.getElementById('legend');
-const sheet = document.getElementById('detailSheet');
-const dTitle = document.getElementById('detailTitle');
-const dClass = document.getElementById('dClass');
-const dBands = document.getElementById('dBands');
-const dAtmos = document.getElementById('dAtmos');
-const dTemp = document.getElementById('dTemp');
-const dWater = document.getElementById('dWater');
-const dGrav = document.getElementById('dGrav');
-const dHab = document.getElementById('dHab');
-const dPOIs = document.getElementById('dPOIs');
-const btnCopy = document.getElementById('btnCopy');
-const btnClose = document.getElementById('btnClose');
-
-let currentSystem = null, selectedId = null, lastPositions = null;
-
-function syncSettingsFromUI(){
-  settings.minPlanets = Number(minEl.value);
-  settings.maxPlanets = Number(maxEl.value);
-  if(settings.maxPlanets < settings.minPlanets){ settings.maxPlanets = settings.minPlanets; maxEl.value = settings.maxPlanets; }
-  settings.moonBias = Number(moonEl.value)/100; // 0..2.0
-  settings.beltChance = Number(beltEl.value)/100;
-  settings.poiDensity = Number(poiEl.value);
-  settings.poiEnabled = Object.fromEntries(catChecks.map(c=>[c.value, c.checked]));
-  minVal.textContent = String(settings.minPlanets);
-  maxVal.textContent = String(settings.maxPlanets);
-  moonVal.textContent = settings.moonBias.toFixed(2)+"×";
-  beltVal.textContent = Math.round(settings.beltChance*100)+"%";
-  poiVal.textContent = String(settings.poiDensity);
-}
-[minEl,maxEl,moonEl,beltEl,poiEl].forEach(el=> el.addEventListener('input', ()=>{ syncSettingsFromUI(); }));
-catChecks.forEach(c=> c.addEventListener('change', syncSettingsFromUI));
-
-function applyPresetDefaults(){
-  const p = presetEl.value;
-  if(p==="Hard Sci‑Fi"){ minEl.value=2; maxEl.value=8; moonEl.value=80; poiEl.value=1; beltEl.value=50; }
-  else if(p==="Sparse"){ minEl.value=1; maxEl.value=6; moonEl.value=60; poiEl.value=0; beltEl.value=30; }
-  else if(p==="Crowded"){ minEl.value=6; maxEl.value=12; moonEl.value=140; poiEl.value=2; beltEl.value=90; }
-  else { minEl.value=4; maxEl.value=10; moonEl.value=120; poiEl.value=2; beltEl.value=80; }
-  // categories all on
-  catChecks.forEach(c=> c.checked = true);
-  syncSettingsFromUI();
-}
-
-function randomizeEverything(){
-  const r = Math.random;
-  minEl.value = 1 + Math.floor(r()*6);
-  maxEl.value = Number(minEl.value) + Math.floor(r()* (16 - Number(minEl.value)));
-  moonEl.value = 40 + Math.floor(r()*160);
-  beltEl.value = Math.floor(r()*101);
-  poiEl.value = Math.floor(r()*4);
-  catChecks.forEach(c=> c.checked = r() < 0.85); // keep most on
-  syncSettingsFromUI();
-}
-
-function updateStats(sys){
-  const s = sys.system_stats;
-  stats.textContent = `Stars: ${s.star_count} • Planets: ${s.planet_count} • Moons: ${s.moon_count} • Belts: ${s.belt_count} • Habitable: ${s.habitable_worlds}`;
-}
-function draw(){
-  lastPositions = drawSystem(map, currentSystem, selectedId);
-}
-function generateAndRender(){
-  const seed = seedEl.value.trim() || "DEFAULT-SEED";
-  const preset = presetEl.value;
-  currentSystem = generateSystem(seed, preset);
-  selectedId = null;
-  draw(); updateStats(currentSystem);
-}
-function openDetails(p){
-  dTitle.textContent = `${p.id} — ${p.class}`;
-  dClass.textContent = `${p.class}`;
-  dBands.textContent = `size ${p.size_band}, mass ${p.mass_band}, density ${p.density_band}`;
-  dAtmos.textContent = p.atmosphere;
-  dTemp.textContent = p.temperature_band;
-  dWater.textContent = p.surface_water;
-  dGrav.textContent = p.gravity_band;
-  const hab = p.habitability_score;
-  dHab.textContent = `${hab}`;
-  dHab.className = 'hab ' + (hab>=60 ? 'good' : hab>=30 ? 'ok' : 'bad');
-  dPOIs.innerHTML = (p.pois||[]).length ? (p.pois.map(x=>`<div>• <b>${x.category}</b>: ${x.name} — <i>${x.hook||''}</i></div>`).join('')) : '<i>None</i>';
-  sheet.classList.add('show');
-}
-btnCopy.addEventListener('click', ()=>{
-  if(!currentSystem || !selectedId) return;
-  const p = currentSystem.planets.find(x=>x.id===selectedId); if(!p) return;
-  const text = `${p.id} (${p.class}) — size ${p.size_band}, mass ${p.mass_band}, density ${p.density_band}, atmos ${p.atmosphere}, water ${p.surface_water}, grav ${p.gravity_band}, temp ${p.temperature_band}, habitability ${p.habitability_score}`;
-  navigator.clipboard?.writeText(text);
-});
-document.getElementById('btnClose').addEventListener('click', ()=> sheet.classList.remove('show'));
-
-btnReroll.addEventListener('click', ()=>{
-  const tag = Math.floor(Math.random()*90000+10000);
-  const base = (seedEl.value.trim() || "SEED").split("-")[0].toUpperCase();
-  seedEl.value = `${base}-${tag}`;
-});
-btnResetPreset.addEventListener('click', ()=>{ applyPresetDefaults(); });
-btnRandomize.addEventListener('click', ()=>{ randomizeEverything(); });
-
-btnGen.addEventListener('click', generateAndRender);
-btnLegend.addEventListener('click', ()=>legend.classList.toggle('hidden'));
-btnJSON.addEventListener('click', ()=> currentSystem && exportJSON(currentSystem));
-btnCSV.addEventListener('click', ()=> currentSystem && exportCSV(currentSystem));
-btnPNG.addEventListener('click', ()=> currentSystem && exportPNG(map, currentSystem, 2));
-
-window.addEventListener('resize', draw);
-window.addEventListener('orientationchange', draw);
-
-// Canvas hit‑testing
-map.addEventListener('click', (ev)=>{
-  if(!currentSystem || !lastPositions) return;
-  const rect = map.getBoundingClientRect();
-  const px = (ev.clientX - rect.left);
-  const py = (ev.clientY - rect.top);
-  let best=null, bestDist=1e9;
-  for(const p of currentSystem.planets){
-    const pos = lastPositions[p.id]; if(!pos) continue;
-    const dx = px - pos.x, dy = py - pos.y;
-    const dist = Math.hypot(dx,dy);
-    if(dist < bestDist){ bestDist=dist; best = p; }
-  }
-  if(best && bestDist <= (lastPositions[best.id].radius + 14)){
-    selectedId = best.id;
-    draw();
-    openDetails(best);
-  }
-});
-
-// boot
-applyPresetDefaults();
-syncSettingsFromUI();
-generateAndRender();
+/*** Wiring ***/
+const btnPDF=document.getElementById('btnExportPDF');
+btnPDF.addEventListener('click',()=> currentSystem && exportPDF(currentSystem));
+...
 </script>
-</body>
-</html>
