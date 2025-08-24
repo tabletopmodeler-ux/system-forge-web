@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>System Forge — Web</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b0f14">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="appbar"><div class="title">System Forge</div></header>
+  <main class="content">
+    <section class="controls">
+      <label>Seed <input id="seed" value="AURORA-07731"></label>
+      <label>Preset
+        <select id="preset">
+          <option>Hard Sci‑Fi</option>
+          <option selected>Space Opera</option>
+          <option>Sparse</option>
+          <option>Crowded</option>
+        </select>
+      </label>
+      <button id="btnGenerate">Generate</button>
+      <button id="btnLegend">Legend</button>
+      <button id="btnExportJSON">Export JSON</button>
+      <button id="btnExportCSV">Export CSV</button>
+      <button id="btnExportPNG">Export PNG</button>
+      <div id="stats"></div>
+    </section>
+    <section class="canvas-wrap">
+      <canvas id="map" width="600" height="600"></canvas>
+      <div id="legend" class="legend hidden">
+        <div>LEGEND</div>
+        <ul>
+          <li>★ Primary Star (color = class)</li>
+          <li>● Terrestrial (blue)</li>
+          <li>⬤ Gas Giant (striped)</li>
+          <li>• Moon (dot)</li>
+          <li>( ) Rings</li>
+          <li>··· Belt</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
