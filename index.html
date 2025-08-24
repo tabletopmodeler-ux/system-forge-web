@@ -1,48 +1,375 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>System Forge — Web</title>
-  <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#0b0f14">
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>System Forge — Web (One‑File)</title>
+<style>
+:root{
+  --bg:#0b0f14; --panel:#111923; --text:#e7f0fb; --muted:#8aa0ba;
+  --accent:#5cc8ff; --btn:#163047; --btn2:#1b2430; --border:#273446;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Inter,Arial,sans-serif}
+.appbar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0d141d;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
+.appbar .title{font-weight:700;letter-spacing:.3px}
+.content{padding:12px;display:grid;gap:12px;grid-template-columns:1fr}
+.controls{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px}
+.controls .row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.controls label{color:var(--muted);font-size:14px}
+.controls input, .controls select{background:#0f1a25;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+.controls button{background:var(--btn2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px 12px;cursor:pointer}
+.controls button.primary{background:var(--btn);border-color:#2b3d53}
+.controls button:hover{filter:brightness(1.1)}
+.stats{font-size:14px;color:var(--muted);padding:6px 2px}
+.canvas-wrap{position:relative;background:#0f1720;border:1px solid var(--border);border-radius:12px;padding:6px;display:flex;justify-content:center}
+canvas{max-width:100%;height:auto;border-radius:8px;background:#0b111a}
+.legend{position:absolute;right:10px;bottom:10px;background:#ffffffd0;color:#000;border:1px solid #888;border-radius:10px;padding:10px;max-width:min(60%,280px)}
+.legend.hidden{display:none}
+.legend .legend-title{font-weight:700;margin-bottom:6px}
+.legend ul{margin:0;padding-left:18px;font-size:12px}
+.legend li{margin:2px 0}
+.footer{padding:8px 12px;color:var(--muted);font-size:12px;text-align:center;border-top:1px solid var(--border)}
+@media (min-width: 900px){
+  .content{grid-template-columns:360px 1fr}
+  .canvas-wrap{min-height:500px}
+}
+</style>
 </head>
 <body>
-  <header class="appbar"><div class="title">System Forge</div></header>
+  <header class="appbar">
+    <div class="title">System Forge</div>
+  </header>
+
   <main class="content">
     <section class="controls">
-      <label>Seed <input id="seed" value="AURORA-07731"></label>
-      <label>Preset
+      <div class="row">
+        <label for="seed">Seed</label>
+        <input id="seed" type="text" placeholder="AURORA-07731" value="AURORA-07731" />
+        <button id="btnReroll" title="Randomize seed">🎲</button>
+      </div>
+      <div class="row">
+        <label for="preset">Preset</label>
         <select id="preset">
           <option>Hard Sci‑Fi</option>
           <option selected>Space Opera</option>
           <option>Sparse</option>
           <option>Crowded</option>
         </select>
-      </label>
-      <button id="btnGenerate">Generate</button>
-      <button id="btnLegend">Legend</button>
-      <button id="btnExportJSON">Export JSON</button>
-      <button id="btnExportCSV">Export CSV</button>
-      <button id="btnExportPNG">Export PNG</button>
-      <div id="stats"></div>
+      </div>
+      <div class="row">
+        <button id="btnGenerate" class="primary">Generate</button>
+        <button id="btnLegend">Legend</button>
+        <button id="btnExportJSON">Export JSON</button>
+        <button id="btnExportCSV">Export CSV</button>
+        <button id="btnExportPNG">Export PNG</button>
+      </div>
+      <div id="stats" class="stats"></div>
     </section>
+
     <section class="canvas-wrap">
-      <canvas id="map" width="600" height="600"></canvas>
+      <canvas id="map" width="800" height="800" aria-label="System map"></canvas>
       <div id="legend" class="legend hidden">
-        <div>LEGEND</div>
+        <div class="legend-title">LEGEND</div>
         <ul>
-          <li>★ Primary Star (color = class)</li>
+          <li>★ Primary Star (color = spectral class)</li>
+          <li>◐ Secondary/Tertiary Star</li>
           <li>● Terrestrial (blue)</li>
-          <li>⬤ Gas Giant (striped)</li>
-          <li>• Moon (dot)</li>
+          <li>● Ocean (dark blue)</li>
+          <li>● Ice (white/blue)</li>
+          <li>⬤ Gas Giant (striped gold/brown)</li>
+          <li>● Dwarf (gray)</li>
+          <li>• Moon (small dot)</li>
           <li>( ) Rings</li>
-          <li>··· Belt</li>
+          <li>··· Asteroid Belt</li>
+          <li>- - - Orbit Path</li>
         </ul>
       </div>
     </section>
   </main>
-  <script src="app.js"></script>
+
+  <footer class="footer">
+    <span id="footInfo">Classic Clean • Web</span>
+  </footer>
+
+<script>
+/*** Deterministic generator + canvas renderer (no external libs) ***/
+function nfc(s){ return s.normalize('NFC'); }
+function hash64(str){
+  let h = 0xcbf29ce484222325n, p = 0x100000001b3n;
+  const bytes = new TextEncoder().encode(str);
+  for(const b of bytes){ h ^= BigInt(b); h = (h * p) & ((1n<<64n)-1n); }
+  return h || 1n;
+}
+function splitSeed(seed){ return [hash64(seed), hash64(seed+"::salt")]; }
+function XORShift128Plus(seedStr){
+  let [s0, s1] = splitSeed(seedStr);
+  function nextBig(){
+    let x = s0, y = s1;
+    s0 = y;
+    x ^= x << 23n; x &= ((1n<<64n)-1n);
+    x ^= x >> 17n;
+    x ^= y;
+    x ^= y >> 26n;
+    s1 = x;
+    return (s0 + s1) & ((1n<<64n)-1n);
+  }
+  function next(){ return Number(nextBig() >> 11n) / Number(1n<<53n); }
+  function randint(lo, hi){ return lo + Math.floor(next() * (hi-lo+1)); }
+  function wchoice(items, weights){
+    let t=weights.reduce((a,b)=>a+b,0), x=next()*t;
+    for(let i=0;i<items.length;i++){ if(x<weights[i]) return items[i]; x-=weights[i]; }
+    return items[items.length-1];
+  }
+  function choice(arr){ return arr[randint(0,arr.length-1)]; }
+  return { next, randint, wchoice, choice };
+}
+const SPECTRAL = ["O","B","A","F","G","K","M"];
+const PLANET = ["terrestrial","ocean","ice","gas","dwarf"];
+const ATMOS = ["none","thin","breathable","thick","toxic"];
+const TEMP = ["freeze","cold","temperate","warm","hot"];
+const GRAV = ["low","earthlike","high"];
+const SIZE = ["tiny","small","medium","large"];
+const DENS = ["low","medium","high"];
+const POI_CATS = ["Cities","Ruins","Geology","Anomalies","Factions","Resources"];
+function bandsForStar(spectral){
+  let mass, lum, rad, color;
+  if(["O","B"].includes(spectral)){ mass="large"; lum="high"; rad="large"; }
+  else if(["A","F","G"].includes(spectral)){ mass="medium"; lum="medium"; rad="medium"; }
+  else { mass="small"; lum="low"; rad="small"; }
+  color = {O:"#4BA3FF",B:"#9CCFFF",A:"#FFFFFF",F:"#FFF59D",G:"#FFD54F",K:"#FFB74D",M:"#EF5350"}[spectral];
+  return {mass, lum, rad, color};
+}
+function habitabilityScore(cls, atmos, grav, temp, water){
+  let s=0;
+  if(cls==="terrestrial"||cls==="ocean") s+=30;
+  if(atmos==="breathable") s+=30; else if(atmos==="thin") s+=10; else if(atmos==="thick") s+=5;
+  if(grav==="earthlike") s+=20;
+  if(temp==="temperate") s+=20; else if(temp==="warm"||temp==="cold") s+=10;
+  if(water==="global") s+=10; else if(water==="patchy") s+=5;
+  return Math.max(0, Math.min(100, s));
+}
+function genPOIs(rng, density){
+  const count = rng.randint(0, Math.max(1, Math.min(5, density+2)));
+  const names = {
+    Cities:["Port Halcyon","Rimwatch","Glass Harbor","Low Dock"],
+    Ruins:["Sundial Spire","Vault-13","Cinder Station","Nameless Gate"],
+    Geology:["Glass Flats","Basalt Teeth","Crater Mare","Whispering Dunes"],
+    Anomalies:["Grav Ripple","Signal Ghost","Aurora Node","Cold Spot"],
+    Factions:["Free Miners","Archivists","Smugglers","Pilgrims"],
+    Resources:["Iridium Veins","Chondrite Field","Hydrothermal Vent","Ice Quarries"]
+  };
+  const hooks = {
+    Cities:"Customs backlog hides unusual cargo.",
+    Ruins:"Ancient locks respond to new signals.",
+    Geology:"Recent tremors reveal fresh strata.",
+    Anomalies:"Sensors glitch with patterned noise.",
+    Factions:"Recruiters seek off-world specialists.",
+    Resources:"New claim jumpers provoke disputes."
+  };
+  const arr=[];
+  for(let i=0;i<count;i++){
+    const cat = POI_CATS[Math.floor(Math.random()*POI_CATS.length)]; // visual variety; OK to use Math.random here
+    const name = names[cat][Math.floor(Math.random()*4)];
+    arr.push({id:`POI-${1000+Math.floor(Math.random()*9000)}`, category:cat, name, tags:[], hook:hooks[cat]});
+  }
+  return arr;
+}
+function generateSystem(seed, preset="Space Opera"){
+  seed = nfc(seed);
+  const rng = XORShift128Plus(seed);
+  let starChoices, planetMin, planetMax, moonBias, poiDensity;
+  switch(preset){
+    case "Hard Sci‑Fi": starChoices=[1,1,2]; planetMin=2; planetMax=8; moonBias=0.8; poiDensity=1; break;
+    case "Sparse":     starChoices=[1,1,1,2]; planetMin=1; planetMax=6; moonBias=0.6; poiDensity=0; break;
+    case "Crowded":    starChoices=[1,2,2,3]; planetMin=6; planetMax=12; moonBias=1.4; poiDensity=2; break;
+    default:           starChoices=[1,2,2,3]; planetMin=4; planetMax=10; moonBias=1.2; poiDensity=2;
+  }
+  const starCount = starChoices[rng.randint(0, starChoices.length-1)];
+  const stars=[];
+  const weights=[1,2,3,5,7,9,10];
+  for(let i=0;i<starCount;i++){
+    // weighted spectral pick
+    let t=weights.reduce((a,b)=>a+b,0), x=rng.next()*t, spectral="G";
+    for(let j=0;j<SPECTRAL.length;j++){ if(x<weights[j]) {spectral=SPECTRAL[j]; break;} x-=weights[j]; }
+    const {mass, lum, rad, color} = bandsForStar(spectral);
+    stars.push({ id:`STAR-${i+1}`, role:["Primary","Secondary","Tertiary"][i], spectral_class:spectral,
+                 mass_band:mass, luminosity_band:lum, radius_band:rad, color_hint:color});
+  }
+  const nPlanets = rng.randint(planetMin, planetMax);
+  const planets=[];
+  let habitable=0, moonTotal=0;
+  function wchoice(items,weights){
+    let t=weights.reduce((a,b)=>a+b,0), x=rng.next()*t;
+    for(let i=0;i<items.length;i++){ if(x<weights[i]) return items[i]; x-=weights[i]; }
+    return items[items.length-1];
+  }
+  for(let idx=1; idx<=nPlanets; idx++){
+    const pclass = wchoice(PLANET,[5,3,3,5,2]);
+    const size = wchoice(SIZE,[2,3,3,2]);
+    const mass = wchoice(SIZE,[2,3,3,2]);
+    const density = wchoice(DENS,[2,5,3]);
+    const atmos = wchoice(ATMOS,[2,3,5,2,2]);
+    const water = wchoice(["none","patchy","global"],[5,3,2]);
+    const grav = wchoice(GRAV,[3,5,3]);
+    const temp = wchoice(TEMP,[2,3,5,3,2]);
+    const rings = (pclass==="gas") && (rng.next()<0.7 || preset==="Crowded");
+    const base = {gas:[2,6], terrestrial:[0,2], ocean:[0,2], ice:[0,1], dwarf:[0,1]}[pclass];
+    let mcount = Math.max(0, Math.round((base[0] + rng.next()*(base[1]-base[0]))*moonBias + (rng.next()-0.5)));
+    moonTotal += mcount;
+    const moons=[];
+    const bands=["near","mid","far"];
+    for(let m=0;m<mcount;m++){
+      moons.push({id:`MN-${idx}${String.fromCharCode(65+m)}`, orbit_dist_band:bands[Math.min(2, Math.floor(rng.next()*3))], class:wchoice(["rock","ice","captured"],[6,3,1]), pois:[]});
+    }
+    const pois = genPOIs(rng, poiDensity);
+    const hab = habitabilityScore(pclass, atmos, grav, temp, water);
+    if(hab>=60) habitable++;
+    planets.push({ id:`PL-${idx}`, orbit_index:idx, parent_star_id:"STAR-1", class:pclass, size_band:size, mass_band:mass, density_band:density,
+                   atmosphere:atmos, surface_water:water, gravity_band:grav, temperature_band:temp, habitability_score:hab, rings:!!rings, moons, pois });
+  }
+  const belts=[];
+  if((preset==="Space Opera"||preset==="Crowded") && nPlanets>=4 && (hash64(seed)&255n) < 204n){
+    const density = wchoice(["sparse","moderate","dense"],[3,5,2]);
+    const comp = wchoice(["carbonaceous chondrites","silicaceous","metallic"],[5,3,2]);
+    belts.push({id:"BELT-1", type:"belt", zone:(nPlanets>5?"outer":"inner"), density_band:density, composition_hint:comp});
+  }
+  const now = new Date().toISOString().replace(/\.\d{3}Z$/,"Z");
+  return {
+    version:"1.0.0",
+    app:"System Forge (Web One‑File)",
+    generated_at:now,
+    seed,
+    name:`System ${seed.split('-')[0].toUpperCase()}`,
+    preset_used:preset,
+    theme:"Classic Clean",
+    system_stats:{ star_count:stars.length, planet_count:planets.length, moon_count:moonTotal, belt_count:belts.length, habitable_worlds:habitable },
+    stars, planets, belts, notes:""
+  };
+}
+const STAR_COLORS = {O:"#4BA3FF",B:"#9CCFFF",A:"#FFFFFF",F:"#FFF59D",G:"#FFD54F",K:"#FFB74D",M:"#EF5350"};
+const PLANET_COLORS = {terrestrial:"#4FC3F7", ocean:"#0288D1", ice:"#E0F7FA", gas:"#FBC02D", dwarf:"#BDBDBD"};
+function drawSystem(canvas, data){
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = "#0b111a"; ctx.fillRect(0,0,W,H);
+  const cx=W/2, cy=H/2;
+  // stars
+  (data.stars||[]).forEach((s, i)=>{
+    const color = STAR_COLORS[s.spectral_class] || "#FFD54F";
+    const r = (i===0?10:6);
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); ctx.lineWidth=1; ctx.strokeStyle="#000"; ctx.stroke();
+  });
+  // planets
+  const planets=data.planets||[];
+  const maxOrbit = Math.max(1, ...planets.map(p=>p.orbit_index));
+  const maxR = Math.min(W,H)/2 - 50;
+  planets.forEach(p=>{
+    const r = (p.orbit_index / maxOrbit) * maxR;
+    ctx.setLineDash([4,3]); ctx.strokeStyle="#667"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    const h = [...p.id].reduce((a,c)=>a + c.charCodeAt(0), 0);
+    const ang = (h % 360) * Math.PI/180;
+    const px = cx + r*Math.cos(ang), py = cy + r*Math.sin(ang);
+    const color = PLANET_COLORS[p.class] || "#4FC3F7";
+    const size = {tiny:4, small:6, medium:8, large:12}[p.size_band] || 6;
+    ctx.beginPath(); ctx.arc(px,py,size,0,Math.PI*2); ctx.fillStyle=color; ctx.fill(); ctx.strokeStyle="#000"; ctx.stroke();
+    if(p.rings){ ctx.strokeStyle="#CCC"; ctx.lineWidth=1; ctx.beginPath(); ctx.ellipse(px,py,size+4,size+2,0,0,Math.PI*2); ctx.stroke(); }
+    (p.moons||[]).slice(0,6).forEach((m,i)=>{
+      const mAng = ang + (i+1)*Math.PI/6, mr = size + 8;
+      const mx = px + mr*Math.cos(mAng), my= py + mr*Math.sin(mAng);
+      ctx.beginPath(); ctx.arc(mx,my,2,0,Math.PI*2); ctx.fillStyle="#AAA"; ctx.fill();
+    });
+  });
+}
+function exportJSON(data){
+  const blob = new Blob([JSON.stringify(data,null,2)+"\n"], {type:"application/json;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), {href:url, download:`${data.name}-${data.seed}.json`});
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+function exportCSV(data){
+  const cols = ["System_Name","Seed","Preset","Theme","Body_Type","Body_ID","Parent_ID","Orbit_Index","Orbit_Dist_Band","Role","Spectral_Class","Mass_Band","Luminosity_Band","Radius_Band","Color_Hint","Class","Size_Band","Density_Band","Atmosphere","Surface_Water","Gravity_Band","Temperature_Band","Habitability_Score","Rings","Moon_Count","POI_Count","POI_List","Notes"];
+  const rows=[cols];
+  const sysname=data.name||"", seed=data.seed||"", preset=data.preset_used||"", theme=data.theme||"", notes=data.notes||"";
+  (data.stars||[]).forEach(s=>{
+    rows.push([sysname,seed,preset,theme,"Star",s.id,"","","",s.role,s.spectral_class,s.mass_band,s.luminosity_band,s.radius_band,s.color_hint,"","","","","","","","","","","0","","",notes]);
+  });
+  (data.planets||[]).forEach(p=>{
+    const poiList=(p.pois||[]).map(x=>x.name).join(";");
+    rows.push([sysname,seed,preset,theme,"Planet",p.id,p.parent_star_id,p.orbit_index,"","","",p.mass_band,"",p.density_band,"",p.class,p.size_band,p.density_band,p.atmosphere,p.surface_water,p.gravity_band,p.temperature_band,p.habitability_score,(p.rings?"Y":"N"),(p.moons||[]).length,(p.pois||[]).length,poiList,notes]);
+    (p.moons||[]).forEach((m,i)=>{
+      const poiListM=(m.pois||[]).map(x=>x.name).join(";");
+      rows.push([sysname,seed,preset,theme,"Moon",m.id,p.id,(i+1),m.orbit_dist_band,"","","","","","","",m.class,"","","","","","",0,"",0,(m.pois||[]).length,poiListM,notes]);
+    });
+  });
+  (data.belts||[]).forEach(b=>{
+    rows.push([sysname,seed,preset,theme,"Belt",b.id,"","","","","","","","","",b.type,"","","","","","","","",0,"",0,"",b.composition_hint||""]);
+  });
+  const csv = rows.map(r=>r.map(cell=>{
+    const s=String(cell??""); return /[",\n,]/.test(s) ? '"'+s.replaceAll('"','""')+'"' : s;
+  }).join(",")).join("\n")+"\n";
+  const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), {href:url, download:`${sysname}-${seed}.csv`});
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+function exportPNG(canvas, data, scale=2){
+  const tmp = document.createElement('canvas');
+  tmp.width = canvas.width*scale; tmp.height = canvas.height*scale;
+  const ctx = tmp.getContext('2d'); ctx.scale(scale,scale);
+  drawSystem(tmp, currentSystem);
+  tmp.toBlob(blob=>{
+    const url = URL.createObjectURL(blob);
+    const a = Object.assign(document.createElement('a'), {href:url, download:`${data.name}-${data.seed}.png`});
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  });
+}
+const seedEl = document.getElementById('seed');
+const presetEl = document.getElementById('preset');
+const btnReroll = document.getElementById('btnReroll');
+const btnGen = document.getElementById('btnGenerate');
+const btnLegend = document.getElementById('btnLegend');
+const btnJSON = document.getElementById('btnExportJSON');
+const btnCSV = document.getElementById('btnExportCSV');
+const btnPNG = document.getElementById('btnExportPNG');
+const map = document.getElementById('map');
+const stats = document.getElementById('stats');
+const legend = document.getElementById('legend');
+let currentSystem = null;
+function updateStats(sys){
+  const s = sys.system_stats;
+  stats.textContent = `Stars: ${s.star_count} • Planets: ${s.planet_count} • Moons: ${s.moon_count} • Belts: ${s.belt_count} • Habitable: ${s.habitable_worlds}`;
+}
+function resizeCanvas(){
+  const wrap = document.querySelector('.canvas-wrap');
+  const size = Math.min(wrap.clientWidth-12, 900);
+  map.width = size; map.height = size;
+  if(currentSystem) drawSystem(map, currentSystem);
+}
+function generateAndRender(){
+  const seed = seedEl.value.trim() || "DEFAULT-SEED";
+  const preset = presetEl.value;
+  currentSystem = generateSystem(seed, preset);
+  drawSystem(map, currentSystem);
+  updateStats(currentSystem);
+}
+btnReroll.addEventListener('click', ()=>{
+  const tag = Math.floor(Math.random()*90000+10000);
+  const base = (seedEl.value.trim() || "SEED").split("-")[0].toUpperCase();
+  seedEl.value = `${base}-${tag}`;
+});
+btnGen.addEventListener('click', generateAndRender);
+btnLegend.addEventListener('click', ()=>legend.classList.toggle('hidden'));
+btnJSON.addEventListener('click', ()=> currentSystem && exportJSON(currentSystem));
+btnCSV.addEventListener('click', ()=> currentSystem && exportCSV(currentSystem));
+btnPNG.addEventListener('click', ()=> currentSystem && exportPNG(map, currentSystem, 2));
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', resizeCanvas);
+resizeCanvas();
+generateAndRender();
+</script>
 </body>
 </html>
