@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>System Forge — Web (Pack D)</title>
+<title>System Forge — Web (Pack D Patched)</title>
 <style>
 :root{
   --bg:#0b0f14; --panel:#111923; --text:#e7f0fb; --muted:#8aa0ba;
@@ -129,7 +129,7 @@ canvas{max-width:100%;height:auto;border-radius:8px;background:#0b111a;touch-act
         <button id="btnExportJSON">JSON</button>
         <button id="btnExportCSV">CSV</button>
         <button id="btnExportPNG">PNG</button>
-        <button id="btnExportPDF">PDF</button> <!-- NEW -->
+        <button id="btnExportPDF">PDF</button>
       </div>
 
       <div id="stats" class="stats"></div>
@@ -153,7 +153,7 @@ canvas{max-width:100%;height:auto;border-radius:8px;background:#0b111a;touch-act
   </main>
 
   <footer class="footer">
-    <span id="footInfo">Pack D • PDF export • Anomaly effects • City populations</span>
+    <span id="footInfo">Pack D (Patched) • PDF export • Anomaly effects • City populations</span>
   </footer>
 
   <!-- Details sheet -->
@@ -235,7 +235,8 @@ function randomPopulation(h){
   if(h<20){ // domes/outposts
     const a=(1+Math.floor(Math.random()*9))*1000;
     const b=(1+Math.floor(Math.random()*50))*1000;
-    return `${Math.min(a,b)}–${Math.max(a,b)}`;
+    const low=Math.min(a,b), high=Math.max(a,b);
+    return `${low.toLocaleString()}–${high.toLocaleString()}`;
   } else if(h<60){
     const low = (100+Math.floor(Math.random()*900))+"k";
     const high = (1+Math.floor(Math.random()*9))+"M";
@@ -381,38 +382,29 @@ function generateSystem(seed, preset="Space Opera"){
 
   const now = new Date().toISOString().replace(/\.\d{3}Z$/,"Z");
   return {
-    version:"1.0.0", app:"System Forge (Pack D)", generated_at:now, seed,
+    version:"1.0.0", app:"System Forge (Pack D Patched)", generated_at:now, seed,
     name:`System ${seed.split('-')[0].toUpperCase()}`, preset_used:preset, theme:"Classic Clean",
     system_stats:{ star_count:stars.length, planet_count:nPlanets, moon_count:moonTotal, belt_count:belts.length, habitable_worlds:habitable },
     stars, planets, belts, notes:""
   };
 }
 
-/*** Renderer (Hi‑DPI, glow/stripes/rings) ***/
-<script>
-// ---- Replace these two functions ----
+/*** Rendering — Hi‑DPI on screen; fixed‑size for exports ***/
 function setupHiDPI(canvas, opt={}) {
-  // If a fixed size is provided (for export), use that; otherwise read from parent.
   const cssSize = opt.size ?? Math.min(canvas.parentElement?.clientWidth ?? 900, 900);
   const dpr = opt.hdpi === false ? 1 : Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-
-  // Set both intrinsic and CSS size
   canvas.style.width = cssSize + "px";
   canvas.style.height = cssSize + "px";
   canvas.width = Math.floor(cssSize * dpr);
   canvas.height = Math.floor(cssSize * dpr);
-
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { ctx, size: cssSize, dpr };
 }
-
 function drawSystem(canvas, data, selectedId=null, opt={}) {
-  // opt: { size?: number, hdpi?: boolean }  (exports pass size + hdpi:false)
   const { ctx, size } = setupHiDPI(canvas, opt);
   const W = size, H = size, cx = W/2, cy = H/2;
-  ctx.fillStyle = "#0b111a";
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#0b111a"; ctx.fillRect(0, 0, W, H);
 
   // stars
   (data.stars||[]).forEach((s, i)=>{
@@ -476,7 +468,7 @@ function drawSystem(canvas, data, selectedId=null, opt={}) {
     });
   });
 
-  // asteroid belt (if any) – simple dotted ring halfway out
+  // asteroid belt (if any) – simple dotted ring
   (data.belts||[]).forEach(()=>{
     const rad = maxR * 0.65;
     const dots=80, a0=Math.random()*Math.PI*2;
@@ -489,8 +481,6 @@ function drawSystem(canvas, data, selectedId=null, opt={}) {
   });
 
   return positions;
-}
-</script>
 }
 
 /*** Exports ***/
@@ -526,10 +516,7 @@ function exportCSV(data){
   const a = Object.assign(document.createElement('a'), {href:url, download:`${sysname}-${seed}.csv`});
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
-  <script>
-// ---- Replace exportPNG ----
 function exportPNG(viewCanvas, data, exportSize=1200){
-  // Render to a dedicated off-screen canvas at a fixed size (no HDPI scaling)
   const off = document.createElement('canvas');
   drawSystem(off, data, null, { size: exportSize, hdpi: false });
   off.toBlob(blob=>{
@@ -541,22 +528,23 @@ function exportPNG(viewCanvas, data, exportSize=1200){
     URL.revokeObjectURL(url);
   });
 }
-</script>
-
-
-<script>
-// ---- Replace exportPDF ----
+/*** PDF export (jsPDF) ***/
+function wrapText(doc, text, x, y, maxWidth, lineHeight){
+  const lines = doc.splitTextToSize(text, maxWidth);
+  lines.forEach(line=>{ doc.text(line, x, y); y+=lineHeight; });
+  return y;
+}
 function exportPDF(sys){
-  if(!window.jspdf?.jsPDF){ alert("PDF engine failed to load. Check your internet connection or Content Blockers."); return; }
+  if(!window.jspdf?.jsPDF){ alert("PDF engine failed to load. Check your connection or content blockers."); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
-  // 1) Draw a map thumbnail off-screen and embed it
+  // Map thumbnail
   const mapCanvas = document.createElement('canvas');
-  drawSystem(mapCanvas, sys, null, { size: 700, hdpi: false }); // large render for crisp thumb
+  drawSystem(mapCanvas, sys, null, { size: 700, hdpi: false });
   const imgData = mapCanvas.toDataURL("image/png");
 
-  // 2) Header
+  // Header
   let y=12, left=10;
   doc.setFont("helvetica","bold"); doc.setFontSize(16);
   doc.text(sys.name, left, y); y+=7;
@@ -565,23 +553,22 @@ function exportPDF(sys){
   const s= sys.system_stats;
   doc.text(`Stars: ${s.star_count}  Planets: ${s.planet_count}  Moons: ${s.moon_count}  Belts: ${s.belt_count}  Habitable: ${s.habitable_worlds}`, left, y); y+=6;
 
-  // 3) Place map thumbnail (right side)
-  // Keep aspect square; 70mm fits nicely; position ~130mm from left
+  // Map on right
   const thumbSize = 70;
   doc.addImage(imgData, "PNG", 130, 15, thumbSize, thumbSize);
 
-  // 4) Stars + Planets listing
+  // Stars + Planets
   y += 4;
-  sys.stars.forEach(st=>{ doc.setFont("helvetica","bold"); doc.text(`★ ${st.id} (${st.spectral_class})`, left, y); y+=5; });
-  if(sys.stars.length) y+=3;
+  (sys.stars||[]).forEach(st=>{ doc.setFont("helvetica","bold"); doc.text(`★ ${st.id} (${st.spectral_class})`, left, y); y+=5; });
+  if(sys.stars?.length) y+=3;
 
-  sys.planets.forEach(p=>{
+  (sys.planets||[]).forEach(p=>{
     doc.setFont("helvetica","bold");
     doc.text(`◯ ${p.id} ${p.class}  Hab ${p.habitability_score}`, left, y); y+=5;
     doc.setFont("helvetica","normal");
     y = wrapText(doc, `Bands: size ${p.size_band}, mass ${p.mass_band}, density ${p.density_band}; atmos ${p.atmosphere}; water ${p.surface_water}; grav ${p.gravity_band}; temp ${p.temperature_band}`, left+4, y, 120, 5);
 
-    if(p.pois.length){
+    if(p.pois?.length){
       p.pois.forEach(q=>{
         const name = (q.category==="Cities" && q.population) ? `${q.name} — pop. ${q.population}` : q.name;
         y = wrapText(doc, `• ${q.category}: ${name}`, left+6, y, 120, 5);
@@ -594,8 +581,6 @@ function exportPDF(sys){
 
   doc.save(`${sys.name}-${sys.seed}.pdf`);
 }
-</script>
-
 
 /*** App wiring & interactions ***/
 const map = document.getElementById('map');
@@ -652,7 +637,7 @@ function syncSettingsFromUI(){
   beltVal.textContent = Math.round(settings.beltChance*100)+"%";
   poiVal.textContent = String(settings.poiDensity);
 }
-[minEl,maxEl,moonEl,beltEl,poiEl].forEach(el=> el.addEventListener('input', ()=>{ syncSettingsFromUI(); }));
+[minEl,maxEl,moonEl,beltEl,poiEl].forEach(el=> el.addEventListener('input', syncSettingsFromUI));
 catChecks.forEach(c=> c.addEventListener('change', syncSettingsFromUI));
 
 function applyPresetDefaults(){
@@ -719,14 +704,14 @@ btnReroll.addEventListener('click', ()=>{
   const base = (seedEl.value.trim() || "SEED").split("-")[0].toUpperCase();
   seedEl.value = `${base}-${tag}`;
 });
-btnResetPreset.addEventListener('click', ()=>{ applyPresetDefaults(); });
-btnRandomize.addEventListener('click', ()=>{ randomizeEverything(); });
+btnResetPreset.addEventListener('click', applyPresetDefaults);
+btnRandomize.addEventListener('click', randomizeEverything);
 
 btnGen.addEventListener('click', generateAndRender);
 btnLegend.addEventListener('click', ()=>legend.classList.toggle('hidden'));
 btnJSON.addEventListener('click', ()=> currentSystem && exportJSON(currentSystem));
 btnCSV.addEventListener('click', ()=> currentSystem && exportCSV(currentSystem));
-btnPNG.addEventListener('click', ()=> currentSystem && exportPNG(map, currentSystem, 2));
+btnPNG.addEventListener('click', ()=> currentSystem && exportPNG(map, currentSystem, 1200));
 btnPDF.addEventListener('click', ()=> currentSystem && exportPDF(currentSystem));
 
 window.addEventListener('resize', draw);
