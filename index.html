@@ -526,66 +526,76 @@ function exportCSV(data){
   const a = Object.assign(document.createElement('a'), {href:url, download:`${sysname}-${seed}.csv`});
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 }
-function exportPNG(canvas, data, scale=2){
-  const tmp = document.createElement('canvas');
-  const size = Math.min(canvas.parentElement.clientWidth-12, 900);
-  tmp.width = size*scale; tmp.height = size*scale;
-  const ctx = tmp.getContext('2d'); ctx.scale(scale,scale);
-  drawSystem(tmp, currentSystem, selectedId);
-  tmp.toBlob(blob=>{
+  <script>
+// ---- Replace exportPNG ----
+function exportPNG(viewCanvas, data, exportSize=1200){
+  // Render to a dedicated off-screen canvas at a fixed size (no HDPI scaling)
+  const off = document.createElement('canvas');
+  drawSystem(off, data, null, { size: exportSize, hdpi: false });
+  off.toBlob(blob=>{
     const url = URL.createObjectURL(blob);
-    const a = Object.assign(document.createElement('a'), {href:url, download:`${data.name}-${data.seed}.png`});
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    const a = Object.assign(document.createElement('a'), {
+      href: url, download: `${data.name}-${data.seed}.png`
+    });
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
   });
 }
+</script>
 
-/*** PDF export (jsPDF) ***/
+
+<script>
+// ---- Replace exportPDF ----
 function exportPDF(sys){
+  if(!window.jspdf?.jsPDF){ alert("PDF engine failed to load. Check your internet connection or Content Blockers."); return; }
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  let y=12, left=10, right=200;
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
 
-  // Header
+  // 1) Draw a map thumbnail off-screen and embed it
+  const mapCanvas = document.createElement('canvas');
+  drawSystem(mapCanvas, sys, null, { size: 700, hdpi: false }); // large render for crisp thumb
+  const imgData = mapCanvas.toDataURL("image/png");
+
+  // 2) Header
+  let y=12, left=10;
   doc.setFont("helvetica","bold"); doc.setFontSize(16);
   doc.text(sys.name, left, y); y+=7;
   doc.setFont("helvetica","normal"); doc.setFontSize(10);
   doc.text(`Seed: ${sys.seed}   Preset: ${sys.preset_used}   Generated: ${sys.generated_at}`, left, y); y+=6;
   const s= sys.system_stats;
-  doc.text(`Stars: ${s.star_count}  Planets: ${s.planet_count}  Moons: ${s.moon_count}  Belts: ${s.belt_count}  Habitable: ${s.habitable_worlds}`, left, y); y+=8;
+  doc.text(`Stars: ${s.star_count}  Planets: ${s.planet_count}  Moons: ${s.moon_count}  Belts: ${s.belt_count}  Habitable: ${s.habitable_worlds}`, left, y); y+=6;
 
-  // Stars
-  sys.stars.forEach(st=>{
-    doc.setFont("helvetica","bold"); doc.text(`★ ${st.id} (${st.spectral_class})`, left, y); y+=5;
-  });
+  // 3) Place map thumbnail (right side)
+  // Keep aspect square; 70mm fits nicely; position ~130mm from left
+  const thumbSize = 70;
+  doc.addImage(imgData, "PNG", 130, 15, thumbSize, thumbSize);
+
+  // 4) Stars + Planets listing
+  y += 4;
+  sys.stars.forEach(st=>{ doc.setFont("helvetica","bold"); doc.text(`★ ${st.id} (${st.spectral_class})`, left, y); y+=5; });
   if(sys.stars.length) y+=3;
 
-  // Planets
   sys.planets.forEach(p=>{
     doc.setFont("helvetica","bold");
     doc.text(`◯ ${p.id} ${p.class}  Hab ${p.habitability_score}`, left, y); y+=5;
     doc.setFont("helvetica","normal");
-    const line = `Bands: size ${p.size_band}, mass ${p.mass_band}, density ${p.density_band}; atmos ${p.atmosphere}; water ${p.surface_water}; grav ${p.gravity_band}; temp ${p.temperature_band}`;
-    y = wrapText(doc, line, left+4, y, 180, 5);
+    y = wrapText(doc, `Bands: size ${p.size_band}, mass ${p.mass_band}, density ${p.density_band}; atmos ${p.atmosphere}; water ${p.surface_water}; grav ${p.gravity_band}; temp ${p.temperature_band}`, left+4, y, 120, 5);
 
     if(p.pois.length){
       p.pois.forEach(q=>{
-        let desc = q.name;
-        if(q.category==="Cities" && q.population) desc += ` — pop. ${q.population}`;
-        y = wrapText(doc, `• ${q.category}: ${desc}`, left+6, y, 180, 5);
-        if(q.hook){ doc.setTextColor(100); y = wrapText(doc, `  ${q.hook}`, left+6, y, 180, 5); doc.setTextColor(0); }
+        const name = (q.category==="Cities" && q.population) ? `${q.name} — pop. ${q.population}` : q.name;
+        y = wrapText(doc, `• ${q.category}: ${name}`, left+6, y, 120, 5);
+        if(q.hook){ doc.setTextColor(100); y = wrapText(doc, `  ${q.hook}`, left+6, y, 120, 5); doc.setTextColor(0); }
       });
     }
-    y+=3;
-    if(y>270){ doc.addPage(); y=12; }
+    y+=2;
+    if(y>285){ doc.addPage(); y=12; }
   });
 
   doc.save(`${sys.name}-${sys.seed}.pdf`);
 }
-function wrapText(doc, text, x, y, maxWidth, lineHeight){
-  const lines = doc.splitTextToSize(text, maxWidth);
-  lines.forEach(line=>{ doc.text(line, x, y); y+=lineHeight; });
-  return y;
-}
+</script>
+
 
 /*** App wiring & interactions ***/
 const map = document.getElementById('map');
